@@ -26,7 +26,8 @@ su-PathComponentArray/
 │  └─ version.rb
 ├─ scripts/
 │  ├─ setup_local_dev.ps1              # 初回: clone + checkout + symlink 作成
-│  └─ update_local_dev.ps1             # 更新: git pull + ブランチ確認/切替
+│  ├─ update_local_dev.ps1             # 更新: git pull + ブランチ確認/切替
+│  └─ update_local_dev.bat             # 更新をダブルクリックで実行するラッパー
 └─ packaging/
    └─ README.md
 ```
@@ -49,6 +50,7 @@ Plugins フォルダは自動更新されません。そのため、ローカル
 |---|---|
 | `scripts/setup_local_dev.ps1` | リポジトリの clone → ブランチ checkout → Plugins フォルダへのシンボリックリンク作成（初回） |
 | `scripts/update_local_dev.ps1` | clone 済みリポジトリの `git pull` → ブランチ確認 / 切替 → 再起動案内（更新） |
+| `scripts/update_local_dev.bat` | 上記更新スクリプトを**ダブルクリック**で実行するラッパー（2回目以降の更新用） |
 
 #### 事前準備
 - **Git for Windows** をインストール（`git` が PATH にあること）。
@@ -127,6 +129,29 @@ clone 済みリポジトリを最新化します。`-RepoPath` は**初回セッ
 > **パスについての注意:** スクリプトは clone 先や Plugins フォルダを既定値・パラメータ
 > として明示的に受け取ります。環境に合わせて `-RepoPath` / `-PluginsPath` を指定して
 > ください（不明なパスを推測する動作はしません）。
+
+#### 2回目以降のローカル更新（.bat ダブルクリック）
+2回目以降の更新は、通常 **`scripts/update_local_dev.bat` をダブルクリック**するだけで
+完了します。この `.bat` は clone 済みフォルダ
+（`C:\Users\shuns\.claude\projects\su-PathComponentArray`）内に置かれている前提です。
+
+`.bat` は内部で次を実行します。
+
+```bat
+.\scripts\update_local_dev.ps1 -Branch "feature/initial-mvp"
+```
+
+実行後の流れ:
+
+1. `git pull` でローカル clone を最新化（ブランチは `feature/initial-mvp`）
+2. 完了メッセージを表示し、`pause` でウィンドウを保持
+3. **更新後は SketchUp 2025 を再起動**して最新のプラグインコードを読み込む
+
+> **クラウド実行時の注意:** Claude Code がクラウド側で動いている場合、Windows ローカルの
+> Plugins フォルダは**自動更新されません**。その場合は、この `.bat` または
+> `update_local_dev.ps1` を**ユーザーがローカルで実行**して反映してください。
+> Claude Code CLI などローカル PowerShell を実行できる環境であれば、作業後に
+> `update_local_dev.ps1` を実行して反映できる可能性があります。
 
 ### 手動でのシンボリックリンク作成（参考）
 スクリプトを使わずに手動で設定する場合の手順です。
@@ -208,6 +233,17 @@ start_offset <= (始点からの距離) <= edge_length - end_offset
 - 角度追従は主に **XY 平面上の Edge 方向**に対する Z 軸回転を想定
 - 処理全体を1回の Undo 操作にまとめる
 - `Group result = Yes` で生成インスタンスを1つのグループにまとめる
+
+## v0.1 実機確認状況
+SketchUp 2025 / Windows 環境で、以下を確認済みです。
+
+- `setup_local_dev.ps1` による clone / checkout / symlink 作成
+  （`su_path_component_array.rb` とフォルダ両方の SymbolicLink 作成を含む）
+- SketchUp 2025 での拡張読み込み
+- ComponentInstance 1つ + Edge 1本による配列配置（例: 7 components placed）
+- Ctrl+Z（Undo）による一括取り消し
+- 起動時に継続的なエラーが出ないこと
+- `follow_path` / `angle_offset_degrees` の基本動作
 
 ## v0.1 制限
 - 複数 Edge / Polyline / Curve は未対応（単一 Edge のみ）
