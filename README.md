@@ -24,6 +24,9 @@ su-PathComponentArray/
 │  ├─ path_sampler.rb                  # Edge から配置点を計算
 │  ├─ instance_placer.rb               # 配置点ごとにインスタンスを複製
 │  └─ version.rb
+├─ scripts/
+│  ├─ setup_local_dev.ps1              # 初回: clone + checkout + symlink 作成
+│  └─ update_local_dev.ps1             # 更新: git pull + ブランチ確認/切替
 └─ packaging/
    └─ README.md
 ```
@@ -34,7 +37,90 @@ su-PathComponentArray/
 
 ## インストール / 開発時リンク
 
-### 開発時（シンボリックリンク）
+Claude Code 側の作業環境と、あなたの Windows ローカル PC の SketchUp Plugins
+フォルダは**別環境**です。GitHub に PR や commit を作成しても、ローカル PC の
+Plugins フォルダは自動更新されません。そのため、ローカル側で初回セットアップ・
+更新を行う PowerShell スクリプトを `scripts/` に同梱しています。**通常はこちらの
+スクリプトを使用してください。**
+
+### スクリプトによる自動セットアップ / 更新（推奨）
+
+| スクリプト | 役割 |
+|---|---|
+| `scripts/setup_local_dev.ps1` | リポジトリの clone → ブランチ checkout → Plugins フォルダへのシンボリックリンク作成（初回） |
+| `scripts/update_local_dev.ps1` | clone 済みリポジトリの `git pull` → ブランチ確認 / 切替 → 再起動案内（更新） |
+
+#### 事前準備
+- **Git for Windows** をインストール（`git` が PATH にあること）。
+- シンボリックリンク作成には、**管理者権限の PowerShell**（「管理者として実行」）
+  または **開発者モード**（設定 > プライバシーとセキュリティ > 開発者向け）が必要です。
+- スクリプト実行がブロックされる場合は、次のように実行してください。
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\setup_local_dev.ps1
+  ```
+
+#### 初回セットアップ
+リポジトリのルートで実行します。`-RepoPath` には clone 先の固定フォルダを指定して
+ください（省略時の既定は `"$HOME\SketchUpDev\su-PathComponentArray"`）。
+
+```powershell
+# 既定値（ブランチ feature/initial-mvp、Plugins は %APPDATA% から自動解決）で実行
+.\scripts\setup_local_dev.ps1
+
+# clone 先・ブランチを明示する例
+.\scripts\setup_local_dev.ps1 `
+  -RepoPath "D:\dev\su-PathComponentArray" `
+  -Branch  "feature/initial-mvp"
+```
+
+このスクリプトは次を行います。
+
+1. `-RepoPath` へリポジトリを clone（既に clone 済みなら再利用）
+2. `-Branch`（既定 `feature/initial-mvp`）を fetch して checkout
+3. Plugins フォルダ（既定 `%APPDATA%\SketchUp\SketchUp 2025\SketchUp\Plugins`）へ
+   `su_path_component_array.rb` と `su_path_component_array` フォルダのリンクを作成
+4. 「SketchUp 2025 を再起動してください」と案内
+
+主なパラメータ:
+
+| パラメータ | 既定値 | 説明 |
+|---|---|---|
+| `-RepoPath` | `"$HOME\SketchUpDev\su-PathComponentArray"` | clone 先（リポジトリルート） |
+| `-Branch` | `feature/initial-mvp` | checkout するブランチ |
+| `-RepoUrl` | GitHub リポジトリ URL | clone 元 |
+| `-PluginsPath` | `%APPDATA%\SketchUp\SketchUp 2025\SketchUp\Plugins` | SketchUp 2025 Plugins フォルダ |
+| `-Force` | （なし） | リンク先に既存の実ファイル/フォルダがある場合に置き換える |
+
+#### 更新
+clone 済みリポジトリを最新化します。`-RepoPath` は**初回セットアップと同じ値**を
+指定してください。
+
+```powershell
+# 現在のブランチを更新
+.\scripts\update_local_dev.ps1
+
+# 指定ブランチへ切り替えてから更新
+.\scripts\update_local_dev.ps1 -Branch "feature/initial-mvp"
+```
+
+このスクリプトは次を行います。
+
+1. 現在のブランチを表示
+2. `origin` を fetch
+3. `-Branch` 指定時はそのブランチへ checkout
+4. `git pull --ff-only` で更新（fast-forward できない場合は警告して中断）
+5. 「SketchUp 2025 を再起動してください」と案内
+
+> リンクは作り直しません。リンクはローカル作業コピーを指しているため、`git pull`
+> 後に SketchUp を再起動すれば新しいコードが読み込まれます。
+
+> **パスについての注意:** スクリプトは clone 先や Plugins フォルダを既定値・パラメータ
+> として明示的に受け取ります。環境に合わせて `-RepoPath` / `-PluginsPath` を指定して
+> ください（不明なパスを推測する動作はしません）。
+
+### 手動でのシンボリックリンク作成（参考）
+スクリプトを使わずに手動で設定する場合の手順です。
 開発中はリポジトリを編集しながら SketchUp 2025 で読み込めるよう、Plugins
 フォルダにシンボリックリンクを作成します。
 
