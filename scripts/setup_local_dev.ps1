@@ -15,8 +15,9 @@
 
 .PARAMETER RepoPath
     Local folder for the clone (the repository root). Default:
-    "$HOME\SketchUpDev\su-PathComponentArray". Change this to your preferred
-    fixed location and use the SAME value in update_local_dev.ps1.
+    "C:\Users\shuns\.claude\projects\su-PathComponentArray". This is a fixed,
+    long-term location chosen to avoid OneDrive-backed Documents. Change it if
+    needed, and use the SAME value in update_local_dev.ps1.
 
 .PARAMETER Branch
     Branch to check out. Default: "feature/initial-mvp".
@@ -47,7 +48,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$RepoPath    = (Join-Path $HOME 'SketchUpDev\su-PathComponentArray'),
+    [string]$RepoPath    = 'C:\Users\shuns\.claude\projects\su-PathComponentArray',
     [string]$Branch      = 'feature/initial-mvp',
     [string]$RepoUrl     = 'https://github.com/airesearchagl-art/su-PathComponentArray.git',
     [string]$PluginsPath = (Join-Path $env:APPDATA 'SketchUp\SketchUp 2025\SketchUp\Plugins'),

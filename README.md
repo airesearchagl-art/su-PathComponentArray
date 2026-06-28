@@ -62,7 +62,16 @@ Plugins フォルダは自動更新されません。そのため、ローカル
 
 #### 初回セットアップ
 リポジトリのルートで実行します。`-RepoPath` には clone 先の固定フォルダを指定して
-ください（省略時の既定は `"$HOME\SketchUpDev\su-PathComponentArray"`）。
+ください。省略時の既定は次の固定フォルダです。
+
+```text
+C:\Users\shuns\.claude\projects\su-PathComponentArray
+```
+
+> この既定は、OneDrive 同期対象になりがちな Documents 配下を避け、長期的に動かさ
+> ない前提の固定フォルダとして `.claude\projects` 配下を採用しています。SketchUp の
+> Plugins フォルダからは、この固定 clone 先へシンボリックリンクを張ります。別の場所
+> を使いたい場合は `-RepoPath` で上書きしてください。
 
 ```powershell
 # 既定値（ブランチ feature/initial-mvp、Plugins は %APPDATA% から自動解決）で実行
@@ -86,7 +95,7 @@ Plugins フォルダは自動更新されません。そのため、ローカル
 
 | パラメータ | 既定値 | 説明 |
 |---|---|---|
-| `-RepoPath` | `"$HOME\SketchUpDev\su-PathComponentArray"` | clone 先（リポジトリルート） |
+| `-RepoPath` | `C:\Users\shuns\.claude\projects\su-PathComponentArray` | clone 先（リポジトリルート） |
 | `-Branch` | `feature/initial-mvp` | checkout するブランチ |
 | `-RepoUrl` | GitHub リポジトリ URL | clone 元 |
 | `-PluginsPath` | `%APPDATA%\SketchUp\SketchUp 2025\SketchUp\Plugins` | SketchUp 2025 Plugins フォルダ |

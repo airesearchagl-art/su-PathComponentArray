@@ -13,7 +13,8 @@
     enough for SketchUp to pick up the new code after a restart.
 
 .PARAMETER RepoPath
-    Local clone folder. Default: "$HOME\SketchUpDev\su-PathComponentArray".
+    Local clone folder. Default:
+    "C:\Users\shuns\.claude\projects\su-PathComponentArray".
     Use the SAME value you passed to setup_local_dev.ps1.
 
 .PARAMETER Branch
@@ -32,7 +33,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$RepoPath = (Join-Path $HOME 'SketchUpDev\su-PathComponentArray'),
+    [string]$RepoPath = 'C:\Users\shuns\.claude\projects\su-PathComponentArray',
     [string]$Branch
 )
 
