@@ -20,7 +20,8 @@
     needed, and use the SAME value in update_local_dev.ps1.
 
 .PARAMETER Branch
-    Branch to check out. Default: "feature/initial-mvp".
+    Branch to check out. Default: "main" (the mainline; PR #1 for the v0.1 MVP
+    is already merged into main).
 
 .PARAMETER RepoUrl
     Git URL to clone from. Default: the su-PathComponentArray GitHub repo.
@@ -36,7 +37,7 @@
     .\scripts\setup_local_dev.ps1
 
 .EXAMPLE
-    .\scripts\setup_local_dev.ps1 -RepoPath "D:\dev\su-PathComponentArray" -Branch feature/initial-mvp
+    .\scripts\setup_local_dev.ps1 -RepoPath "D:\dev\su-PathComponentArray" -Branch main
 
 .NOTES
     Creating symbolic links on Windows requires either an elevated
@@ -49,7 +50,7 @@
 [CmdletBinding()]
 param(
     [string]$RepoPath    = 'C:\Users\shuns\.claude\projects\su-PathComponentArray',
-    [string]$Branch      = 'feature/initial-mvp',
+    [string]$Branch      = 'main',
     [string]$RepoUrl     = 'https://github.com/airesearchagl-art/su-PathComponentArray.git',
     [string]$PluginsPath = (Join-Path $env:APPDATA 'SketchUp\SketchUp 2025\SketchUp\Plugins'),
     [switch]$Force
