@@ -18,14 +18,15 @@
     Use the SAME value you passed to setup_local_dev.ps1.
 
 .PARAMETER Branch
-    Optional branch to switch to before pulling. If omitted, the current
-    branch is updated in place.
+    Branch to switch to before pulling. Default: "main" (normal operation
+    tracks mainline after the v0.1 PR was merged). Pass another branch name
+    only when you deliberately want to update a work branch.
 
 .EXAMPLE
     .\scripts\update_local_dev.ps1
 
 .EXAMPLE
-    .\scripts\update_local_dev.ps1 -Branch feature/initial-mvp
+    .\scripts\update_local_dev.ps1 -Branch main
 
 .NOTES
     If the script is blocked by the execution policy, run it as:
@@ -34,7 +35,7 @@
 [CmdletBinding()]
 param(
     [string]$RepoPath = 'C:\Users\shuns\.claude\projects\su-PathComponentArray',
-    [string]$Branch
+    [string]$Branch   = 'main'
 )
 
 $ErrorActionPreference = 'Stop'

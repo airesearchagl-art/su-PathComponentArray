@@ -76,19 +76,19 @@ C:\Users\shuns\.claude\projects\su-PathComponentArray
 > を使いたい場合は `-RepoPath` で上書きしてください。
 
 ```powershell
-# 既定値（ブランチ feature/initial-mvp、Plugins は %APPDATA% から自動解決）で実行
+# 既定値（ブランチ main、Plugins は %APPDATA% から自動解決）で実行
 .\scripts\setup_local_dev.ps1
 
 # clone 先・ブランチを明示する例
 .\scripts\setup_local_dev.ps1 `
   -RepoPath "D:\dev\su-PathComponentArray" `
-  -Branch  "feature/initial-mvp"
+  -Branch  "main"
 ```
 
 このスクリプトは次を行います。
 
 1. `-RepoPath` へリポジトリを clone（既に clone 済みなら再利用）
-2. `-Branch`（既定 `feature/initial-mvp`）を fetch して checkout
+2. `-Branch`（既定 `main`）を fetch して checkout
 3. Plugins フォルダ（既定 `%APPDATA%\SketchUp\SketchUp 2025\SketchUp\Plugins`）へ
    `su_path_component_array.rb` と `su_path_component_array` フォルダのリンクを作成
 4. 「SketchUp 2025 を再起動してください」と案内
@@ -98,7 +98,7 @@ C:\Users\shuns\.claude\projects\su-PathComponentArray
 | パラメータ | 既定値 | 説明 |
 |---|---|---|
 | `-RepoPath` | `C:\Users\shuns\.claude\projects\su-PathComponentArray` | clone 先（リポジトリルート） |
-| `-Branch` | `feature/initial-mvp` | checkout するブランチ |
+| `-Branch` | `main` | checkout するブランチ |
 | `-RepoUrl` | GitHub リポジトリ URL | clone 元 |
 | `-PluginsPath` | `%APPDATA%\SketchUp\SketchUp 2025\SketchUp\Plugins` | SketchUp 2025 Plugins フォルダ |
 | `-Force` | （なし） | リンク先に既存の実ファイル/フォルダがある場合に置き換える |
@@ -107,19 +107,23 @@ C:\Users\shuns\.claude\projects\su-PathComponentArray
 clone 済みリポジトリを最新化します。`-RepoPath` は**初回セットアップと同じ値**を
 指定してください。
 
+> **ブランチ方針:** v0.1 MVP の PR #1 は `main` に merge 済みです。**通常運用では
+> `main` を追従します**（各スクリプトの `-Branch` 既定は `main`）。特定の作業ブランチを
+> 更新したい場合のみ `-Branch` を明示指定してください。
+
 ```powershell
-# 現在のブランチを更新
+# 通常運用: main を追従して更新（-Branch の既定は main）
 .\scripts\update_local_dev.ps1
 
-# 指定ブランチへ切り替えてから更新
-.\scripts\update_local_dev.ps1 -Branch "feature/initial-mvp"
+# 別の作業ブランチを更新したい場合のみ明示指定
+.\scripts\update_local_dev.ps1 -Branch "feature/xxxx"
 ```
 
 このスクリプトは次を行います。
 
 1. 現在のブランチを表示
 2. `origin` を fetch
-3. `-Branch` 指定時はそのブランチへ checkout
+3. `-Branch`（既定 `main`）のブランチへ checkout（通常は `main`）
 4. `git pull --ff-only` で更新（fast-forward できない場合は警告して中断）
 5. 「SketchUp 2025 を再起動してください」と案内
 
@@ -138,12 +142,12 @@ clone 済みリポジトリを最新化します。`-RepoPath` は**初回セッ
 `.bat` は内部で次を実行します。
 
 ```bat
-.\scripts\update_local_dev.ps1 -Branch "feature/initial-mvp"
+.\scripts\update_local_dev.ps1 -Branch "main"
 ```
 
 実行後の流れ:
 
-1. `git pull` でローカル clone を最新化（ブランチは `feature/initial-mvp`）
+1. `git pull` でローカル clone を最新化（ブランチは `main`）
 2. 完了メッセージを表示し、`pause` でウィンドウを保持
 3. **更新後は SketchUp 2025 を再起動**して最新のプラグインコードを読み込む
 
