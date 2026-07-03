@@ -1,0 +1,18 @@
+# Built / distributable artifacts (do not commit binaries to this repo)
+*.rbz
+*.zip
+*.skp
+*.skb
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Ruby
+*.gem
+.bundle/
+vendor/bundle/
