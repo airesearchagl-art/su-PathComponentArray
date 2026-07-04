@@ -19,25 +19,25 @@ module AiResearchAGL
       instances = selection.grep(Sketchup::ComponentInstance)
       edges     = selection.grep(Sketchup::Edge)
 
-      unless instances.size == 1 && edges.size == 1
+      unless instances.size == 1 && edges.size >= 1
         UI.messagebox(
-          "Select exactly one ComponentInstance and one path Edge, then run " \
-          "the command again.\n" \
-          "ComponentInstanceを1つ、Path用Edgeを1本選択してから実行してください。"
+          "Select exactly one ComponentInstance and one or more path Edges, " \
+          "then run the command again.\n" \
+          "ComponentInstanceを1つ、Path用Edgeを1本以上選択してから実行してください。"
         )
         return
       end
 
       source     = instances.first
-      edge       = edges.first
       definition = source.definition
 
       inputs = prompt_inputs
       return if inputs.nil? # user cancelled
 
       begin
-        sample = PathSampler.sample_edge(
-          edge, inputs[:pitch], inputs[:start_offset], inputs[:end_offset]
+        ordered_path = PathSampler.order_edges(edges)
+        sample = PathSampler.sample_path(
+          ordered_path, inputs[:pitch], inputs[:start_offset], inputs[:end_offset]
         )
       rescue ArgumentError => e
         UI.messagebox(e.message)
@@ -61,7 +61,7 @@ module AiResearchAGL
 
       placed = InstancePlacer.place(
         target, definition, source.transformation,
-        sample.points, sample.direction,
+        sample.points, sample.tangents,
         inputs[:follow_path], inputs[:angle_offset_deg]
       )
 

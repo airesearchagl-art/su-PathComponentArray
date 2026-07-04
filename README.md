@@ -1,9 +1,8 @@
 # su-PathComponentArray
 
 ## 概要
-選択したEdgeに沿って、選択したComponentInstanceを等ピッチで複製配置する
-SketchUp Ruby Extension です。直線のEdgeをパスとして使い、その上に等間隔で
-コンポーネントを並べます。
+選択したEdge（単一Edge、または連続する複数EdgeによるPolyline）に沿って、選択した
+ComponentInstanceを等ピッチで複製配置する SketchUp Ruby Extension です。
 
 ## 対象環境
 - SketchUp 2025
@@ -21,13 +20,15 @@ su-PathComponentArray/
 ├─ su_path_component_array.rb          # ローダー（SketchupExtension を登録）
 ├─ su_path_component_array/
 │  ├─ extension.rb                     # メニュー登録・コマンド本体
-│  ├─ path_sampler.rb                  # Edge から配置点を計算
+│  ├─ path_sampler.rb                  # Edge / Polyline から配置点を計算
 │  ├─ instance_placer.rb               # 配置点ごとにインスタンスを複製
 │  └─ version.rb
 ├─ scripts/
 │  ├─ setup_local_dev.ps1              # 初回: clone + checkout + symlink 作成
 │  ├─ update_local_dev.ps1             # 更新: git pull + ブランチ確認/切替
 │  └─ update_local_dev.bat             # 更新をダブルクリックで実行するラッパー
+├─ docs/
+│  └─ v0.1_development_digest.md       # v0.1 開発ダイジェスト（Vault転記用要約）
 └─ packaging/
    └─ README.md
 ```
@@ -196,11 +197,19 @@ New-Item -ItemType SymbolicLink `
 
 ## 使い方
 1. 配置元の ComponentInstance を1つ選択する
-2. パスとして使う Edge を1本選択する（両方を同時に選択した状態にする）
+2. パスとして使う Edge を1本、または連続する複数Edge（Polyline状のEdge列）を
+   選択する（ComponentInstance と同時に選択した状態にする）
 3. メニュー **Extensions > su-PathComponentArray > Create Path Component Array**
    を実行する
 4. 表示される入力ダイアログで `pitch` などを入力する
-5. Edge 上に等ピッチでコンポーネントが複製配置される
+5. パス上に等ピッチでコンポーネントが複製配置される
+
+> **複数Edge選択時の条件（v0.2）:** 選択した複数Edgeは、端点同士が接続した
+> **1本の連続したチェーン**である必要があります。分岐している、不連続な
+> Edgeが混ざっている、複数の独立したパスが選択されている、閉じたループに
+> なっている場合はエラーメッセージを表示して中断します（詳細は後述の
+> 「v0.2 制限」を参照）。Edge の選択順序は問いません（内部で端点のつながりから
+> 自動的に並べ替えます）。
 
 > メニューの表示位置について: 本拡張は SketchUp の標準プラグインメニュー
 > （`UI.menu("Plugins")`）にメニューを登録します。SketchUp 2025 ではこのメニ
@@ -210,17 +219,22 @@ New-Item -ItemType SymbolicLink `
 | 項目 | 意味 |
 |---|---|
 | Pitch | 配置間隔。長さとして入力します（例: `500` または `500mm`）。 |
-| Start offset | Edge 始点から最初の配置点までの距離。 |
-| End offset | Edge 終点側で配置しない距離。 |
-| Follow path | `Yes` で Edge 方向に沿ってコンポーネントを回転、`No` で元の向きを維持。 |
+| Start offset | パスの始点から最初の配置点までの距離。 |
+| End offset | パスの終点側で配置しない距離。 |
+| Follow path | `Yes` でパス（Edge / Polyline）の方向に沿ってコンポーネントを回転、`No` で元の向きを維持。 |
 | Angle offset (degrees) | 追加の回転角度（度）。Follow path が `No` でも追加回転として使えます。 |
 | Group result | `Yes` で生成結果を1つのグループにまとめます。 |
 
-配置範囲は次の条件で計算されます。
+配置範囲は、単一Edge・複数Edge（Polyline）のどちらでも、パス全体の長さ
+（`total_length`）を基準に次の条件で計算されます。
 
 ```text
-start_offset <= (始点からの距離) <= edge_length - end_offset
+start_offset <= (始点からの累積距離) <= total_length - end_offset
 ```
+
+複数Edgeの場合、`Follow path = Yes` では**配置点が属する区間（segment）の
+接線方向**に基づいて回転するため、Polyline が折れ曲がる箇所ではコンポーネント
+の向きもそれに応じて変わります。
 
 ### 単位についての注意
 - Pitch / Start offset / End offset は **長さ** として扱います。
@@ -238,6 +252,33 @@ start_offset <= (始点からの距離) <= edge_length - end_offset
 - 処理全体を1回の Undo 操作にまとめる
 - `Group result = Yes` で生成インスタンスを1つのグループにまとめる
 
+## v0.2 MVP仕様
+- 単一 Edge に加え、**端点同士が接続した連続する複数 Edge（Polyline状のEdge列）**
+  にも対応
+- Edge の選択順序は不問（内部で端点のつながりから自動的に並べ替え）
+- 配置間隔・配置範囲は、単一Edgeのときと同じ考え方をパス全体の長さ
+  （`total_length`）に対して適用
+- `Follow path = Yes` の角度追従は、**配置点が属する区間（segment）の接線方向**
+  に基づいて計算（Polyline が折れ曲がる箇所では、区間ごとに向きが変わる）
+- 角度追従は v0.1 と同様、主に **XY 平面上の Edge / Polyline 方向**に対する
+  Z 軸回転を想定
+- 単一Edge選択時の挙動は v0.1 から変更なし
+
+## v0.2 制限
+- 分岐している Edge の選択は未対応（エラーとして中断）
+- 端点が接続していない不連続な Edge の混在は未対応（エラーとして中断）
+- 複数の独立したパスの同時選択は未対応（エラーとして中断）
+- 閉じたループ（始点・終点が一意に決まらない Edge の輪）は未対応
+  （エラーとして中断。今後の拡張予定）
+- Curve（真の曲線エンティティ）への対応は未対応
+- ランダムピッチ・角度の段階変化は未対応
+- 生成後の再編集（パラメータを後から変更）は未対応
+- 任意 3D 方向の完全な姿勢制御は未対応または限定対応
+- 配置基準は原点固定（中心合わせ・端部合わせ・任意基準点指定は未対応）
+
+> v0.2 でも、角度追従は主に XY 平面上の Edge / Polyline を想定しています。
+> 任意 3D 方向の Edge / Polyline に対する完全な姿勢制御は今後の拡張予定です。
+
 ## v0.1 実機確認状況
 SketchUp 2025 / Windows 環境で、以下を確認済みです。
 
@@ -250,6 +291,8 @@ SketchUp 2025 / Windows 環境で、以下を確認済みです。
 - `follow_path` / `angle_offset_degrees` の基本動作
 
 ## v0.1 制限
+（このセクションは v0.1 時点の制限です。複数 Edge / Polyline 対応は v0.2 で
+追加されました。最新の制限は上記「v0.2 制限」を参照してください。）
 - 複数 Edge / Polyline / Curve は未対応（単一 Edge のみ）
 - ランダムピッチは未対応
 - 角度の段階変化（配置ごとに角度を変える）は未対応
@@ -261,7 +304,8 @@ SketchUp 2025 / Windows 環境で、以下を確認済みです。
 > 任意 3D 方向の Edge に対する完全な姿勢制御は今後の拡張予定です。
 
 ## 今後の拡張予定
-- 複数 Edge / Polyline 対応
+- 閉じたループ対応
+- 分岐パス対応
 - Curve 対応
 - ランダムピッチ
 - ランダム seed
@@ -269,6 +313,7 @@ SketchUp 2025 / Windows 環境で、以下を確認済みです。
 - HTML Dialog ベースの UI
 - プリセット保存
 - 生成結果の再編集
+- 任意 3D 方向の完全な姿勢制御
 
 ## ライセンス / 作者
 - Author: airesearchagl-art
