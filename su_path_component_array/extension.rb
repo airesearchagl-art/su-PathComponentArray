@@ -115,6 +115,15 @@ module AiResearchAGL
         return nil
       end
 
+      random_ratio_text = results[8].to_s.strip
+      random_ratio_percent =
+        begin
+          random_ratio_text.empty? ? 0.0 : Float(random_ratio_text)
+        rescue ArgumentError, TypeError
+          UI.messagebox('ランダム率（%）には数値を入力してください。')
+          return nil
+        end
+
       seed_text = results[9].to_s.strip
       seed =
         begin
@@ -133,7 +142,7 @@ module AiResearchAGL
         group_result:     results[5] == 'はい',
         spacing_mode:     results[6] == SPACING_MODE_PER_EDGE ? :per_edge : :cumulative,
         pitch_mode:       results[7] == PITCH_MODE_RANDOM ? :random : :fixed,
-        random_ratio:     results[8].to_f / 100.0,
+        random_ratio:     random_ratio_percent / 100.0,
         seed:             seed
       }
     end
