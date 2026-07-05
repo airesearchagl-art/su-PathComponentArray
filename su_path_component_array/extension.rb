@@ -19,25 +19,24 @@ module AiResearchAGL
       instances = selection.grep(Sketchup::ComponentInstance)
       edges     = selection.grep(Sketchup::Edge)
 
-      unless instances.size == 1 && edges.size == 1
+      unless instances.size == 1 && edges.size >= 1
         UI.messagebox(
-          "Select exactly one ComponentInstance and one path Edge, then run " \
-          "the command again.\n" \
-          "ComponentInstanceを1つ、Path用Edgeを1本選択してから実行してください。"
+          'ComponentInstanceを1つ、パス用Edgeを1本以上選択してから実行してください。'
         )
         return
       end
 
       source     = instances.first
-      edge       = edges.first
       definition = source.definition
 
       inputs = prompt_inputs
       return if inputs.nil? # user cancelled
 
       begin
-        sample = PathSampler.sample_edge(
-          edge, inputs[:pitch], inputs[:start_offset], inputs[:end_offset]
+        ordered_path = PathSampler.order_edges(edges)
+        sample = PathSampler.sample_path(
+          ordered_path, inputs[:pitch], inputs[:start_offset], inputs[:end_offset],
+          inputs[:spacing_mode]
         )
       rescue ArgumentError => e
         UI.messagebox(e.message)
@@ -61,26 +60,30 @@ module AiResearchAGL
 
       placed = InstancePlacer.place(
         target, definition, source.transformation,
-        sample.points, sample.direction,
+        sample.points, sample.tangents,
         inputs[:follow_path], inputs[:angle_offset_deg]
       )
 
       model.commit_operation
-      UI.messagebox("Placed #{placed.size} component(s) along the edge.")
+      UI.messagebox("パスに沿ってコンポーネントを配置しました。\n配置数: #{placed.size}個")
     rescue StandardError => e
       model.abort_operation
-      UI.messagebox("Failed to create the array:\n#{e.message}")
+      UI.messagebox("配置に失敗しました:\n#{e.message}")
     end
+
+    SPACING_MODE_CUMULATIVE = '全体累積長'
+    SPACING_MODE_PER_EDGE   = 'Edgeごとリセット'
 
     # Collect settings through UI.inputbox. Returns a Hash, or nil if the user
     # cancelled or entered values that could not be parsed.
     def self.prompt_inputs
-      prompts  = ['Pitch', 'Start offset', 'End offset',
-                  'Follow path', 'Angle offset (degrees)', 'Group result']
-      defaults = ['500mm', '0mm', '0mm', 'Yes', '0.0', 'Yes']
-      lists    = ['', '', '', 'Yes|No', '', 'Yes|No']
+      prompts  = ['ピッチ', '開始オフセット', '終了オフセット', 'パス方向に追従',
+                  '追加角度（度）', '結果をグループ化', 'ピッチ方式']
+      defaults = ['500mm', '0mm', '0mm', 'はい', '0.0', 'はい', SPACING_MODE_CUMULATIVE]
+      lists    = ['', '', '', 'はい|いいえ', '', 'はい|いいえ',
+                  "#{SPACING_MODE_CUMULATIVE}|#{SPACING_MODE_PER_EDGE}"]
 
-      results = UI.inputbox(prompts, defaults, lists, 'Create Path Component Array')
+      results = UI.inputbox(prompts, defaults, lists, 'パスコンポーネント配列の作成')
       return nil unless results # false when the dialog is cancelled
 
       begin
@@ -89,8 +92,8 @@ module AiResearchAGL
         end_offset   = results[2].to_l
       rescue ArgumentError
         UI.messagebox(
-          'Could not read the pitch / offset values. Enter lengths such as ' \
-          '500 or 500mm.'
+          'ピッチ・オフセットの値を読み取れませんでした。500 や 500mm のような' \
+          '長さを入力してください。'
         )
         return nil
       end
@@ -99,9 +102,10 @@ module AiResearchAGL
         pitch:            pitch,
         start_offset:     start_offset,
         end_offset:       end_offset,
-        follow_path:      results[3] == 'Yes',
+        follow_path:      results[3] == 'はい',
         angle_offset_deg: results[4].to_f,
-        group_result:     results[5] == 'Yes'
+        group_result:     results[5] == 'はい',
+        spacing_mode:     results[6] == SPACING_MODE_PER_EDGE ? :per_edge : :cumulative
       }
     end
 
