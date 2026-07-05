@@ -7,14 +7,21 @@ module AiResearchAGL
     #
     # v0.2 supports a single Edge or a continuous chain of Edges (a polyline).
     # Branching, disconnected selections, and closed loops are rejected with a
-    # friendly ArgumentError. Curves, random pitch and gradual angle changes
-    # are still future work.
+    # friendly ArgumentError. Curves and gradual angle changes are still
+    # future work.
     #
     # Two spacing modes are supported when sampling:
     #   :cumulative - pitch is measured along the whole path's cumulative
     #                 length (start_offset / end_offset apply to the whole path)
     #   :per_edge   - pitch resets to 0 at the start of every edge
     #                 (start_offset / end_offset apply to each edge individually)
+    #
+    # v0.3 adds a pitch mode, independent of spacing_mode:
+    #   :fixed  - every step advances by exactly `pitch` (v0.1/v0.2 behavior)
+    #   :random - each step advances by `pitch` randomized within
+    #             +/- random_ratio, reproducible via `seed`. A single Random
+    #             instance is used for the whole path regardless of
+    #             spacing_mode, so :per_edge does not restart the sequence.
     module PathSampler
       # Small tolerance (in SketchUp internal inches) used so floating point
       # rounding does not drop a point that sits exactly on a segment/end limit.
@@ -72,26 +79,46 @@ module AiResearchAGL
         traverse(edges, adjacency, vertex_by_id[endpoint_ids.first])
       end
 
+      # Random ratio may not reach or exceed 1.0 (100%): the step would drop
+      # to zero or go negative and the placement loop could never finish.
+      MAX_RANDOM_RATIO = 0.95
+
       # Sample a validated OrderedPath at a fixed pitch.
       #
       # All length arguments are SketchUp Length values (internal inches).
       # spacing_mode is :cumulative (default) or :per_edge.
+      # pitch_mode is :fixed (default) or :random.
+      # random_ratio is a fraction (0.2 == 20%), only used when pitch_mode is
+      # :random. seed is an Integer, only used when pitch_mode is :random; the
+      # same seed always reproduces the same placement.
       # Raises ArgumentError with a user friendly (Japanese) message on
       # invalid input so the caller can show it directly in a message box.
-      def self.sample_path(ordered_path, pitch, start_offset, end_offset, spacing_mode = :cumulative)
+      def self.sample_path(ordered_path, pitch, start_offset, end_offset,
+                            spacing_mode = :cumulative, pitch_mode = :fixed,
+                            random_ratio = 0.0, seed = 0)
         raise ArgumentError, 'ピッチは0より大きい値を入力してください。' if pitch <= 0
 
         if start_offset.negative? || end_offset.negative?
           raise ArgumentError, '開始オフセットと終了オフセットは0以上の値を入力してください。'
         end
 
+        rng = nil
+        if pitch_mode == :random
+          unless random_ratio.is_a?(Numeric) && random_ratio >= 0 && random_ratio <= MAX_RANDOM_RATIO
+            raise ArgumentError, 'ランダム率は0以上95以下の数値を入力してください。'
+          end
+          raise ArgumentError, 'seedは整数で入力してください。' unless seed.is_a?(Integer)
+
+          rng = Random.new(seed)
+        end
+
         segments = build_segments(ordered_path)
 
         result =
           if spacing_mode == :per_edge
-            sample_per_edge(segments, pitch, start_offset, end_offset)
+            sample_per_edge(segments, pitch, start_offset, end_offset, pitch_mode, rng, random_ratio)
           else
-            sample_cumulative(segments, pitch, start_offset, end_offset)
+            sample_cumulative(segments, pitch, start_offset, end_offset, pitch_mode, rng, random_ratio)
           end
 
         raise ArgumentError, '開始オフセットと終了オフセットにより、有効な配置範囲がありません。' if result.points.empty?
@@ -103,7 +130,7 @@ module AiResearchAGL
 
       # :cumulative mode: pitch is measured along the whole path. offsets
       # apply to the path as a whole.
-      def self.sample_cumulative(segments, pitch, start_offset, end_offset)
+      def self.sample_cumulative(segments, pitch, start_offset, end_offset, pitch_mode, rng, random_ratio)
         total_length = segments.sum { |s| s[:length] }
         raise ArgumentError, '選択したパスの長さが0です。' if total_length <= 0
 
@@ -120,7 +147,7 @@ module AiResearchAGL
             segment = segments[index]
             points   << segment[:start_point].offset(segment[:direction], local_distance)
             tangents << segment[:direction]
-            distance += pitch
+            distance += next_step(pitch, pitch_mode, rng, random_ratio)
           end
         end
 
@@ -136,7 +163,11 @@ module AiResearchAGL
       # end of one edge and a point at the very start of the next edge can
       # both land on (or very near) their shared vertex. This is expected in
       # :per_edge mode and is not de-duplicated; see the README for details.
-      def self.sample_per_edge(segments, pitch, start_offset, end_offset)
+      #
+      # When pitch_mode is :random, the same `rng` is drawn from continuously
+      # across all edges (it is not reset per edge), so a single seed governs
+      # the whole path even though the placement distance itself resets.
+      def self.sample_per_edge(segments, pitch, start_offset, end_offset, pitch_mode, rng, random_ratio)
         total_length = segments.sum { |s| s[:length] }
         raise ArgumentError, '選択したパスの長さが0です。' if total_length <= 0
 
@@ -152,13 +183,24 @@ module AiResearchAGL
           while distance <= last_dist + EPSILON
             points   << segment[:start_point].offset(segment[:direction], distance)
             tangents << segment[:direction]
-            distance += pitch
+            distance += next_step(pitch, pitch_mode, rng, random_ratio)
           end
         end
 
         Result.new(points, tangents, total_length)
       end
       private_class_method :sample_per_edge
+
+      # Advance by exactly `pitch` in :fixed mode. In :random mode, advance by
+      # `pitch` randomized within +/- random_ratio (e.g. random_ratio 0.2 means
+      # each step is between pitch * 0.8 and pitch * 1.2).
+      def self.next_step(pitch, pitch_mode, rng, random_ratio)
+        return pitch unless pitch_mode == :random
+
+        factor = 1.0 + ((rng.rand * 2.0 - 1.0) * random_ratio)
+        pitch * factor
+      end
+      private_class_method :next_step
 
       # Build a vertex-id -> incident-edges map (the "degree" of each vertex
       # within the selection) plus a vertex-id -> Vertex lookup.
